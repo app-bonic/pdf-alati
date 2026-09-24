@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF alati</title>
+<meta name="description" content="Spoji, razdvoji, rotiraj, obriši i premjesti stranice PDF-a — besplatno, u pregledniku, bez slanja datoteka na poslužitelj.">
+<link rel="icon" href="zajednicko/logo.svg">
+<link rel="stylesheet" href="zajednicko/app-bonic.css">
+<style>
+  .traka { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .traka .info { color: var(--blijedo); font-size: 14px; }
+  .stranice { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 16px; }
+  .str { position: relative; background: var(--plo); border: 1px solid var(--crta); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; cursor: grab; user-select: none; transition: border-color .12s, opacity .12s; }
+  .str.odabrana { border: 2px solid var(--akcent); padding: 7px; background: var(--akcent-meko); }
+  .str.vuce { opacity: .35; }
+  .str.cilj { outline: 3px dashed var(--akcent); outline-offset: 2px; }
+  .str .slicica { aspect-ratio: 1 / 1.3; display: grid; place-items: center; background: var(--polje); border-radius: 6px; overflow: hidden; }
+  .str canvas { max-width: 100%; max-height: 100%; box-shadow: 0 1px 4px rgb(0 0 0 / .18); background: #fff; transition: transform .2s; }
+  .str .opis { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; gap: 4px; }
+  .str .opis b { font-size: 14px; }
+  .str .izvor { color: var(--blijedo); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .str .alatke { display: flex; justify-content: space-between; gap: 2px; }
+  .str .alatke button { flex: 1; border: 0; background: var(--polje); border-radius: 7px; padding: 5px 0; cursor: pointer; color: var(--blijedo); display: grid; place-items: center; }
+  .str .alatke button:hover { color: var(--akcent-jak); background: var(--akcent-meko); }
+  .str .alatke button.brisi:hover { color: var(--greska); background: var(--greska-meko); }
+  .str .alatke .ik { width: 16px; height: 16px; }
+  .str .kvacica-str { position: absolute; top: 12px; left: 12px; width: 20px; height: 20px; z-index: 2; }
+  .radnje { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 16px; }
+  .radnje .kartica { display: flex; flex-direction: column; gap: 10px; }
+  .radnje .kartica p { color: var(--blijedo); font-size: 13.5px; }
+  .radnje .kartica .gumb { margin-top: auto; }
+  .zrcalo { transform: scaleX(-1); }
+</style>
+</head>
+<body data-alat="pdf-alati">
+<header class="ab-vrh"></header>
+
+<main class="ab-omot">
+  <section class="ab-uvod">
+    <span class="ab-ikona"><span data-ik="slojevi"></span></span>
+    <div>
+      <h1>PDF alati</h1>
+      <p>Spoji više PDF-ova u jedan, razdvoji PDF na dijelove, rotiraj, obriši ili premjesti stranice. Datoteke se obrađuju u tvom pregledniku i nigdje se ne šalju.</p>
+    </div>
+  </section>
+
+  <div class="dropzona" id="drop"><span data-ik="upload"></span><b>Ubaci PDF datoteke</b><span>Klikni ili povuci ovamo — može ih biti više, redoslijed mijenjaš povlačenjem stranica</span></div>
+
+  <div id="radno" hidden>
+    <div class="kartica" style="margin-top:16px">
+      <div class="traka">
+        <span class="info" id="info"></span>
+        <div class="gumbi">
+          <button type="button" class="gumb" id="dodaj"><span data-ik="plus"></span>Dodaj PDF</button>
+          <button type="button" class="gumb" id="rotLijevo" title="Rotiraj sve ulijevo"><span data-ik="rotiraj" class="zrcalo"></span>Sve</button>
+          <button type="button" class="gumb" id="rotDesno" title="Rotiraj sve udesno"><span data-ik="rotiraj"></span>Sve</button>
+          <button type="button" class="gumb tekstualni" id="odaberiSve">Odaberi sve</button>
+          <button type="button" class="gumb tekstualni" id="obrisiOdabrane" hidden>Obriši odabrane</button>
+          <button type="button" class="gumb tekstualni opasno" id="ocisti">Počni ispočetka</button>
+        </div>
+      </div>
+      <div class="stranice" id="stranice"></div>
+    </div>
+
+    <div class="radnje">
+      <section class="kartica">
+        <h2>Spoji u jedan PDF</h2>
+        <p>Sve stranice, redom kako su poslagane gore, s rotacijama.</p>
+        <div class="polje"><label for="ime">Naziv datoteke</label><input id="ime" value="spojeno.pdf"></div>
+        <button type="button" class="gumb glavni" id="spoji"><span data-ik="preuzmi"></span>Preuzmi PDF</button>
+      </section>
+      <section class="kartica">
+        <h2>Izdvoji odabrane stranice</h2>
+        <p>Klikni stranice koje želiš (plavi okvir) — dobit ćeš PDF samo s njima.</p>
+        <button type="button" class="gumb" id="izdvoji" disabled><span data-ik="preuzmi"></span>Preuzmi odabrane</button>
+      </section>
+      <section class="kartica">
+        <h2>Razdvoji PDF</h2>
+        <div class="seg" role="radiogroup" aria-label="Način razdvajanja">
+          <label><input type="radio" name="dijeli" value="svaka" checked><span>Svaka stranica</span></label>
+          <label><input type="radio" name="dijeli" value="n"><span>Svakih N</span></label>
+          <label><input type="radio" name="dijeli" value="rasponi"><span>Rasponi</span></label>
+        </div>
+        <div class="polje" id="poljeN" hidden><label for="n">Stranica po dijelu</label><input id="n" type="number" min="1" value="2"></div>
+        <div class="polje" id="poljeRasponi" hidden><label for="rasponi">Rasponi <small>npr. 1-3, 4, 5-8</small></label><input id="rasponi" placeholder="1-3, 4-6"></div>
+        <button type="button" class="gumb" id="razdvoji"><span data-ik="preuzmi"></span>Preuzmi ZIP</button>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="ab-dno"></footer>
+<script src="zajednicko/app-bonic.js"></script>
+<script src="lib/pdf.min.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
+<script src="lib/jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
